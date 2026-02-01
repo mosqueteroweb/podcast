@@ -77,6 +77,12 @@ def process_channel(channel_url, gh_client, release):
 
     for video in channel_info['entries']:
         video_id = video['id']
+        video_url = video['url']
+
+        if not video_id or not video_url:
+            logger.warning(f"Skipping video with missing ID or URL: {video}")
+            continue
+
         # Unique filename: CHANNEL_SLUG_VIDEOID.mp3
         filename = f"{channel_name_slug}_{video_id}.mp3"
 
@@ -90,7 +96,7 @@ def process_channel(channel_url, gh_client, release):
         else:
             # Download and Upload
             logger.info(f"Downloading new episode: {video['title']}")
-            result = download_audio(video['url'])
+            result = download_audio(video_url)
 
             if result:
                 # Rename file to our unique format
