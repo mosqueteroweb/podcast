@@ -1,0 +1,54 @@
+name: Update Podcast Feed
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    # Allow manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  update-feed:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install system dependencies (ffmpeg)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg
+
+    - name: Install Python dependencies
+      run: |
+        pip install -r requirements.txt
+
+    - name: Run Feed Generator
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
+      run: |
+        python main.py
+
+    - name: Commit and Push Feeds
+      run: |
+        git config --global user.name "GitHub Action"
+        git config --global user.email "action@github.com"
+        git add *.xml
+        # Check if there are changes to commit
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "Update podcast feeds [skip ci]"
+          git push
+        fi
