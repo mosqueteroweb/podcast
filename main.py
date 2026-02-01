@@ -40,7 +40,10 @@ def main():
         channels = [line.strip() for line in f if line.strip() and not line.startswith('#')]
 
     for channel_url in channels:
-        process_channel(channel_url, gh_client, release)
+        try:
+            process_channel(channel_url, gh_client, release)
+        except Exception as e:
+            logger.error(f"Critical error processing channel {channel_url}: {e}")
 
 def process_channel(channel_url, gh_client, release):
     logger.info(f"Processing channel: {channel_url}")
@@ -48,7 +51,11 @@ def process_channel(channel_url, gh_client, release):
     # 1. Get Channel Info and latest videos
     channel_info = get_channel_info(channel_url, limit=MAX_EPISODES)
     if not channel_info:
-        logger.warning(f"Skipping channel {channel_url} due to error.")
+        logger.warning(f"Skipping channel {channel_url} due to error (could not fetch info).")
+        return
+
+    if not channel_info.get('entries'):
+        logger.warning(f"Channel {channel_url} found but has no videos/entries.")
         return
 
     # Prepare episode list for the feed

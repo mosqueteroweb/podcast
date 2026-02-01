@@ -13,7 +13,8 @@ def get_channel_info(channel_url, limit=5):
     ydl_opts = {
         'extract_flat': True,
         'playlistend': limit,
-        'quiet': True,
+        'quiet': False, # Changed to False for debugging
+        'ignoreerrors': True, # Skip private/deleted videos without crashing
     }
 
     try:
@@ -78,14 +79,16 @@ def download_audio(video_url, output_dir="downloads"):
         'nocheckcertificate': True,
         'ignoreerrors': True,
         'logtostderr': False,
-        'quiet': True,
-        'no_warnings': True,
+        'quiet': False, # Enable output to debug
+        'no_warnings': False,
         'default_search': 'auto',
+        # Use a common browser User-Agent to avoid immediate blocking
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            logger.info(f"Downloading {video_url}...")
+            logger.info(f"Attempting to download {video_url}...")
             info = ydl.extract_info(video_url, download=True)
 
             # The file extension might change after post-processing
