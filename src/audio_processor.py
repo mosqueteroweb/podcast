@@ -95,6 +95,27 @@ def download_audio(video_url, output_dir="downloads"):
         logger.error("download_audio called with None video_url")
         return None
 
+    # Transform YouTube URL to Invidious URL to bypass auth blocking
+    # Using a reliable instance. If this fails, we might need a list of instances.
+    # inv.tux.pizza is generally reliable. yewtu.be is another option.
+    INVIDIOUS_INSTANCE = "https://inv.tux.pizza"
+
+    if "youtube.com" in video_url or "youtu.be" in video_url:
+        # Extract ID (simple robust way for standard URLs)
+        if "v=" in video_url:
+            vid_id = video_url.split("v=")[1].split("&")[0]
+        elif "youtu.be/" in video_url:
+            vid_id = video_url.split("youtu.be/")[1].split("?")[0]
+        else:
+            # Fallback: let yt-dlp handle extraction if regex fails,
+            # but we want to force invidious.
+            # Assuming standard format from our get_channel_info
+            vid_id = None
+
+        if vid_id:
+            logger.info(f"Switching download source to Invidious for ID: {vid_id}")
+            video_url = f"{INVIDIOUS_INSTANCE}/watch?v={vid_id}"
+
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
