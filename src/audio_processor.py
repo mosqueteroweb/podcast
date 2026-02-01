@@ -106,7 +106,8 @@ def download_audio(video_url, output_dir="downloads", cookiefile=None):
     out_tmpl = os.path.join(output_dir, '%(id)s.%(ext)s')
 
     ydl_opts = {
-        'format': 'bestaudio/best',
+        # Fallback to download best available stream (video+audio) if bestaudio fails
+        'format': 'best',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
