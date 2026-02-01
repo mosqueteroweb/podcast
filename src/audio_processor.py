@@ -1,6 +1,7 @@
 import yt_dlp
 import os
 import logging
+import time
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -99,8 +100,13 @@ def download_audio(video_url, output_dir="downloads"):
         os.makedirs(output_dir)
 
     # List of Invidious instances to try
-    # Prioritize instances known for stability
+    # Prioritize instances known for stability and uptime
     INVIDIOUS_INSTANCES = [
+        "https://inv.citw.lgbt",
+        "https://invidious.flokinet.to",
+        "https://invidious.privacydev.net",
+        "https://invidious.jing.rocks",
+        "https://invidious.nerdvpn.de",
         "https://yewtu.be",
         "https://inv.tux.pizza",
         "https://vid.puffyan.us",
@@ -183,6 +189,7 @@ def download_audio(video_url, output_dir="downloads"):
 
         except Exception as e:
             logger.warning(f"Failed to download from {attempt_url}: {str(e)}")
+            time.sleep(2) # Short pause before next attempt
             continue
 
     logger.error(f"All download attempts failed for {video_url}")
