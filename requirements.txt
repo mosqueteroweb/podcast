@@ -1,0 +1,5 @@
+yt-dlp
+feedgen
+requests
+python-dateutil
+PyGithub
