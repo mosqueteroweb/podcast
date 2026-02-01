@@ -95,29 +95,36 @@ def download_audio(video_url, output_dir="downloads"):
         logger.error("download_audio called with None video_url")
         return None
 
-    # Transform YouTube URL to Invidious URL to bypass auth blocking
-    # Using a reliable instance. If this fails, we might need a list of instances.
-    # inv.tux.pizza is generally reliable. yewtu.be is another option.
-    INVIDIOUS_INSTANCE = "https://inv.tux.pizza"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
+    # List of Invidious instances to try
+    # Prioritize instances known for stability
+    INVIDIOUS_INSTANCES = [
+        "https://yewtu.be",
+        "https://inv.tux.pizza",
+        "https://vid.puffyan.us",
+        "https://invidious.drgns.space",
+        "https://invidious.fdn.fr"
+    ]
+
+    # Prepare list of URLs to try: first the Invidious ones, then original as last resort
+    urls_to_try = []
+
+    # Extract ID
+    vid_id = None
     if "youtube.com" in video_url or "youtu.be" in video_url:
-        # Extract ID (simple robust way for standard URLs)
         if "v=" in video_url:
             vid_id = video_url.split("v=")[1].split("&")[0]
         elif "youtu.be/" in video_url:
             vid_id = video_url.split("youtu.be/")[1].split("?")[0]
-        else:
-            # Fallback: let yt-dlp handle extraction if regex fails,
-            # but we want to force invidious.
-            # Assuming standard format from our get_channel_info
-            vid_id = None
 
-        if vid_id:
-            logger.info(f"Switching download source to Invidious for ID: {vid_id}")
-            video_url = f"{INVIDIOUS_INSTANCE}/watch?v={vid_id}"
+    if vid_id:
+        for instance in INVIDIOUS_INSTANCES:
+            urls_to_try.append(f"{instance}/watch?v={vid_id}")
 
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    # Always append original URL as final fallback
+    urls_to_try.append(video_url)
 
     # Output template: downloads/VIDEO_ID.mp3
     out_tmpl = os.path.join(output_dir, '%(id)s.%(ext)s')
@@ -142,34 +149,41 @@ def download_audio(video_url, output_dir="downloads"):
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
     }
 
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            logger.info(f"Attempting to download {video_url}...")
-            info = ydl.extract_info(video_url, download=True)
+    for attempt_url in urls_to_try:
+        try:
+            logger.info(f"Attempting to download from: {attempt_url}")
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(attempt_url, download=True)
 
-            if not info:
-                logger.error(f"yt-dlp returned no info for {video_url}")
-                return None
+                if info:
+                    # Success!
+                    # The file extension might change after post-processing
+                    video_id = info['id']
+                    filename = f"{video_id}.mp3"
+                    filepath = os.path.join(output_dir, filename)
 
-            video_id = info['id']
-            filename = f"{video_id}.mp3"
-            filepath = os.path.join(output_dir, filename)
+                    # Verify file exists
+                    if os.path.exists(filepath):
+                        return {
+                            'filepath': filepath,
+                            'filename': filename,
+                            'title': info.get('title'),
+                            'duration': info.get('duration'),
+                            'description': info.get('description'),
+                            'upload_date': info.get('upload_date'),
+                            'id': video_id
+                        }
+                    else:
+                        logger.warning(f"Download reported success but file not found: {filepath}")
+                        # Don't return None immediately, try next instance just in case
+                        continue
 
-            # Verify file exists
-            if os.path.exists(filepath):
-                return {
-                    'filepath': filepath,
-                    'filename': filename,
-                    'title': info.get('title'),
-                    'duration': info.get('duration'),
-                    'description': info.get('description'),
-                    'upload_date': info.get('upload_date'),
-                    'id': video_id
-                }
-            else:
-                logger.error(f"File not found after download: {filepath}")
-                return None
+                # If info is None but no exception raised
+                logger.warning(f"No info returned for {attempt_url}, trying next...")
 
-    except Exception as e:
-        logger.error(f"Error downloading {video_url}: {str(e)}")
-        return None
+        except Exception as e:
+            logger.warning(f"Failed to download from {attempt_url}: {str(e)}")
+            continue
+
+    logger.error(f"All download attempts failed for {video_url}")
+    return None
