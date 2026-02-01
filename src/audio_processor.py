@@ -7,7 +7,7 @@ import time
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def get_channel_info(channel_url, limit=5):
+def get_channel_info(channel_url, limit=5, cookiefile=None):
     """
     Fetches channel metadata and the latest videos.
     """
@@ -17,6 +17,9 @@ def get_channel_info(channel_url, limit=5):
         'quiet': False,
         'ignoreerrors': True,
     }
+
+    if cookiefile:
+        ydl_opts['cookiefile'] = cookiefile
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -87,7 +90,7 @@ def get_channel_info(channel_url, limit=5):
         logger.error(f"Error processing channel {channel_url}: {str(e)}")
         return None
 
-def download_audio(video_url, output_dir="downloads"):
+def download_audio(video_url, output_dir="downloads", cookiefile=None):
     """
     Downloads audio from a video URL and converts it to MP3.
     Returns the path to the downloaded file and metadata.
@@ -98,39 +101,6 @@ def download_audio(video_url, output_dir="downloads"):
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-
-    # List of Invidious instances to try
-    # Prioritize instances known for stability and uptime
-    INVIDIOUS_INSTANCES = [
-        "https://inv.citw.lgbt",
-        "https://invidious.flokinet.to",
-        "https://invidious.privacydev.net",
-        "https://invidious.jing.rocks",
-        "https://invidious.nerdvpn.de",
-        "https://yewtu.be",
-        "https://inv.tux.pizza",
-        "https://vid.puffyan.us",
-        "https://invidious.drgns.space",
-        "https://invidious.fdn.fr"
-    ]
-
-    # Prepare list of URLs to try: first the Invidious ones, then original as last resort
-    urls_to_try = []
-
-    # Extract ID
-    vid_id = None
-    if "youtube.com" in video_url or "youtu.be" in video_url:
-        if "v=" in video_url:
-            vid_id = video_url.split("v=")[1].split("&")[0]
-        elif "youtu.be/" in video_url:
-            vid_id = video_url.split("youtu.be/")[1].split("?")[0]
-
-    if vid_id:
-        for instance in INVIDIOUS_INSTANCES:
-            urls_to_try.append(f"{instance}/watch?v={vid_id}")
-
-    # Always append original URL as final fallback
-    urls_to_try.append(video_url)
 
     # Output template: downloads/VIDEO_ID.mp3
     out_tmpl = os.path.join(output_dir, '%(id)s.%(ext)s')
@@ -155,42 +125,39 @@ def download_audio(video_url, output_dir="downloads"):
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
     }
 
-    for attempt_url in urls_to_try:
-        try:
-            logger.info(f"Attempting to download from: {attempt_url}")
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(attempt_url, download=True)
+    if cookiefile:
+        ydl_opts['cookiefile'] = cookiefile
 
-                if info:
-                    # Success!
-                    # The file extension might change after post-processing
-                    video_id = info['id']
-                    filename = f"{video_id}.mp3"
-                    filepath = os.path.join(output_dir, filename)
+    try:
+        logger.info(f"Attempting to download: {video_url}")
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(video_url, download=True)
 
-                    # Verify file exists
-                    if os.path.exists(filepath):
-                        return {
-                            'filepath': filepath,
-                            'filename': filename,
-                            'title': info.get('title'),
-                            'duration': info.get('duration'),
-                            'description': info.get('description'),
-                            'upload_date': info.get('upload_date'),
-                            'id': video_id
-                        }
-                    else:
-                        logger.warning(f"Download reported success but file not found: {filepath}")
-                        # Don't return None immediately, try next instance just in case
-                        continue
+            if info:
+                # Success!
+                # The file extension might change after post-processing
+                video_id = info['id']
+                filename = f"{video_id}.mp3"
+                filepath = os.path.join(output_dir, filename)
 
-                # If info is None but no exception raised
-                logger.warning(f"No info returned for {attempt_url}, trying next...")
+                # Verify file exists
+                if os.path.exists(filepath):
+                    return {
+                        'filepath': filepath,
+                        'filename': filename,
+                        'title': info.get('title'),
+                        'duration': info.get('duration'),
+                        'description': info.get('description'),
+                        'upload_date': info.get('upload_date'),
+                        'id': video_id
+                    }
+                else:
+                    logger.error(f"Download reported success but file not found: {filepath}")
+                    return None
+            else:
+                logger.error(f"No info returned for {video_url}")
+                return None
 
-        except Exception as e:
-            logger.warning(f"Failed to download from {attempt_url}: {str(e)}")
-            time.sleep(2) # Short pause before next attempt
-            continue
-
-    logger.error(f"All download attempts failed for {video_url}")
-    return None
+    except Exception as e:
+        logger.error(f"Failed to download from {video_url}: {str(e)}")
+        return None

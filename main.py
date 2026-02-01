@@ -14,7 +14,9 @@ logger = logging.getLogger(__name__)
 CHANNELS_FILE = "channels.txt"
 GITHUB_REPO = os.getenv("GITHUB_REPOSITORY")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+YOUTUBE_COOKIES = os.getenv("YOUTUBE_COOKIES")
 MAX_EPISODES = 5
+COOKIE_FILE = "cookies.txt"
 
 def main():
     if not GITHUB_REPO or not GITHUB_TOKEN:
@@ -22,6 +24,14 @@ def main():
         return
 
     logger.info(f"Starting podcast feed update for repo: {GITHUB_REPO}")
+
+    # Write cookies to file if secret is present
+    if YOUTUBE_COOKIES:
+        with open(COOKIE_FILE, "w") as f:
+            f.write(YOUTUBE_COOKIES)
+        logger.info("Cookies loaded from secret.")
+    else:
+        logger.warning("YOUTUBE_COOKIES secret not found. YouTube might block requests.")
 
     # Initialize GitHub Client
     gh_client = GitHubClient(GITHUB_TOKEN, GITHUB_REPO)
@@ -45,11 +55,16 @@ def main():
         except Exception as e:
             logger.error(f"Critical error processing channel {channel_url}: {e}")
 
+    # Cleanup cookies
+    if os.path.exists(COOKIE_FILE):
+        os.remove(COOKIE_FILE)
+
 def process_channel(channel_url, gh_client, release):
     logger.info(f"Processing channel: {channel_url}")
 
     # 1. Get Channel Info and latest videos
-    channel_info = get_channel_info(channel_url, limit=MAX_EPISODES)
+    cookie_path = COOKIE_FILE if os.path.exists(COOKIE_FILE) else None
+    channel_info = get_channel_info(channel_url, limit=MAX_EPISODES, cookiefile=cookie_path)
     if not channel_info:
         logger.warning(f"Skipping channel {channel_url} due to error (could not fetch info).")
         return
@@ -96,7 +111,8 @@ def process_channel(channel_url, gh_client, release):
         else:
             # Download and Upload
             logger.info(f"Downloading new episode: {video['title']}")
-            result = download_audio(video_url)
+            cookie_path = COOKIE_FILE if os.path.exists(COOKIE_FILE) else None
+            result = download_audio(video_url, cookiefile=cookie_path)
 
             if result:
                 # Rename file to our unique format
