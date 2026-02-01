@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.mp3
+*.m4a
+venv/
+.env
+downloads/
+INSTRUCCIONES_USO_LOCAL.md
