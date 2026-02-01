@@ -62,7 +62,8 @@ def process_channel(channel_url, gh_client, release):
     episodes_for_feed = []
 
     # Helper to clean channel name for file naming (simple version)
-    channel_name_slug = "".join([c if c.isalnum() else "_" for c in channel_info['title']])
+    # Using Channel ID to avoid collisions if two channels have the same name
+    channel_name_slug = channel_info['id']
 
     # Identify current assets in release to avoid re-uploading if not needed
     existing_assets = gh_client.list_assets(release)
@@ -75,16 +76,9 @@ def process_channel(channel_url, gh_client, release):
         # Check if asset exists in release
         if filename in existing_assets:
             logger.info(f"File {filename} already exists in Release.")
-            # Construct download URL (standard GitHub Release asset URL)
-            # https://github.com/USER/REPO/releases/download/TAG/FILENAME
-            download_url = f"https://github.com/{GITHUB_REPO}/releases/download/downloads/{filename}"
-
-            # We need file size for enclosure, but we can't easily get it without a HEAD request or caching.
-            # For simplicity/speed in this MVP, we might put a dummy size or try to fetch metadata.
-            # AntennaPod handles 0 or estimated size okay-ish, but accurate is better.
-            # Let's assume a default safe size or try to store it.
-            # Ideally, we should check the asset metadata via API, but let's keep it simple.
-            file_size = 0 # TODO: Fetch asset size via GitHub API if possible
+            asset = existing_assets[filename]
+            download_url = asset.browser_download_url
+            file_size = asset.size
 
         else:
             # Download and Upload

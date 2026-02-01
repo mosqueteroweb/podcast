@@ -81,7 +81,6 @@ def download_audio(video_url, output_dir="downloads"):
         'quiet': True,
         'no_warnings': True,
         'default_search': 'auto',
-        'source_address': '0.0.0.0',
     }
 
     try:

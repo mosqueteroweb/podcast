@@ -85,8 +85,8 @@ class GitHubClient:
 
     def list_assets(self, release):
         """
-        Returns a list of asset names in the release.
+        Returns a dictionary of asset names to their objects in the release.
         """
         if not release:
-            return []
-        return [asset.name for asset in release.get_assets()]
+            return {}
+        return {asset.name: asset for asset in release.get_assets()}

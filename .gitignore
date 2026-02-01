@@ -5,3 +5,4 @@ __pycache__/
 venv/
 .env
 downloads/
+INSTRUCCIONES_USO_LOCAL.md
